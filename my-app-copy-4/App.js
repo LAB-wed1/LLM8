@@ -21,9 +21,9 @@ const saveSelectedProducts = async (selectedProducts) => {
   try {
     const jsonValue = JSON.stringify(selectedProducts);
     await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, jsonValue);
-    console.log('Successfully saved selected products to AsyncStorage');
+    console.log('บันทึกสินค้าที่เลือกลง AsyncStorage สำเร็จ:', selectedProducts);
   } catch (error) {
-    console.error('Error saving selected products:', error);
+    console.error('เกิดข้อผิดพลาดในการบันทึกสินค้าที่เลือก:', error);
   }
 };
 
@@ -33,12 +33,12 @@ const loadSelectedProducts = async () => {
     const jsonValue = await AsyncStorage.getItem(SELECTED_PRODUCTS_KEY);
     if (jsonValue != null) {
       const selectedProducts = JSON.parse(jsonValue);
-      console.log('Successfully loaded selected products from AsyncStorage:', selectedProducts);
+      console.log('โหลดสินค้าที่เลือกจาก AsyncStorage สำเร็จ:', selectedProducts);
       return selectedProducts;
     }
     return [];
   } catch (error) {
-    console.error('Error loading selected products:', error);
+    console.error('เกิดข้อผิดพลาดในการโหลดสินค้าที่เลือก:', error);
     return [];
   }
 };
@@ -92,11 +92,21 @@ const fetchProducts = async () => {
 };
 
 // ProductCard component รับ props ตามที่โจทย์กำหนด
-const ProductCard = ({ id, name, price, stock, cate, pic, isSelected, onPress }) => {
+const ProductCard = ({ id, name, price, stock, cate, pic, onProductSelect }) => {
+  const handlePress = async () => {
+    // แสดง Alert ชื่อสินค้า
+    window.alert(`คุณเลือกสินค้า: ${name}`);
+    
+    // บันทึกชื่อสินค้าลง AsyncStorage
+    if (onProductSelect) {
+      await onProductSelect(id, name);
+    }
+  };
+
   return (
     <TouchableOpacity 
-      style={[styles.card, isSelected && styles.selectedCard]} 
-      onPress={() => onPress(id, name)}
+      style={styles.card} 
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <Image 
@@ -109,11 +119,6 @@ const ProductCard = ({ id, name, price, stock, cate, pic, isSelected, onPress })
         <Text style={styles.category}>{cate}</Text>
         <Text style={styles.price}>฿{price}</Text>
         <Text style={styles.stock}>สินค้าคงเหลือ: {stock} ชิ้น</Text>
-        {isSelected && (
-          <View style={styles.selectedBadge}>
-            <Text style={styles.selectedText}>✓ เลือกแล้ว</Text>
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -144,21 +149,14 @@ const App = () => {
   };
 
   // ฟังก์ชันสำหรับจัดการการเลือกสินค้า
-  const handleProductPress = async (productId, productName) => {
-    let updatedSelectedProducts;
-    
-    if (selectedProducts.some(p => p.id === productId)) {
-      // ถ้าสินค้านี้ถูกเลือกแล้ว ให้ยกเลิกการเลือก
-      updatedSelectedProducts = selectedProducts.filter(p => p.id !== productId);
-      window.alert(`ยกเลิกการเลือก "${productName}" แล้ว`);
-    } else {
-      // ถ้าสินค้านี้ยังไม่ถูกเลือก ให้เพิ่มเข้าไป
-      updatedSelectedProducts = [...selectedProducts, { id: productId, name: productName }];
-      window.alert(`บันทึกแล้ว ${productName}`);
-    }
+  const handleProductSelect = async (productId, productName) => {
+    const newProduct = { id: productId, name: productName };
+    const updatedSelectedProducts = [...selectedProducts, newProduct];
     
     setSelectedProducts(updatedSelectedProducts);
     await saveSelectedProducts(updatedSelectedProducts);
+    
+    console.log(`บันทึก "${productName}" ลง Local Storage แล้ว`);
   };
 
   const filterProducts = () => {
@@ -246,11 +244,11 @@ const App = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Selected Products Counter */}
+      {/* แสดงรายการสินค้าที่เลือก */}
       {selectedProducts.length > 0 && (
         <View style={styles.selectedContainer}>
           <Text style={styles.selectedCountText}>
-            เลือกแล้ว {selectedProducts.length} รายการ
+            สินค้าที่เลือก ({selectedProducts.length} รายการ):
           </Text>
           <TouchableOpacity 
             style={styles.clearButton}
@@ -278,8 +276,7 @@ const App = () => {
             stock={item.stock}
             cate={item.cate}
             pic={item.pic}
-            isSelected={selectedProducts.some(p => p.id === item.id)}
-            onPress={handleProductPress}
+            onProductSelect={handleProductSelect}
           />
         ))}
       </ScrollView>
@@ -389,25 +386,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  selectedCard: {
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-    backgroundColor: '#f8fff8',
-  },
-  selectedBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  selectedText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   selectedContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -419,9 +397,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#4CAF50',
   },
   selectedCountText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#2E7D2E',
+    flex: 1,
   },
   clearButton: {
     backgroundColor: '#f44336',
@@ -431,7 +410,7 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
   },
 });
