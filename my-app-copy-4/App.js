@@ -13,10 +13,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// =====================================================
+// คำสั่งที่ 2: Local Storage Setup
+// =====================================================
 // Key สำหรับเก็บข้อมูลใน AsyncStorage
 const SELECTED_PRODUCTS_KEY = '@selected_products';
 
-// ฟังก์ชันสำหรับบันทึกรายการสินค้าที่เลือกลง AsyncStorage
+// คำสั่งที่ 2: ฟังก์ชันสำหรับบันทึกรายการสินค้าที่เลือกลง AsyncStorage
 const saveSelectedProducts = async (selectedProducts) => {
   try {
     const jsonValue = JSON.stringify(selectedProducts);
@@ -27,7 +30,7 @@ const saveSelectedProducts = async (selectedProducts) => {
   }
 };
 
-// ฟังก์ชันสำหรับโหลดรายการสินค้าที่เลือกจาก AsyncStorage
+// คำสั่งที่ 2: ฟังก์ชันสำหรับโหลดรายการสินค้าที่เลือกจาก AsyncStorage
 const loadSelectedProducts = async () => {
   try {
     const jsonValue = await AsyncStorage.getItem(SELECTED_PRODUCTS_KEY);
@@ -91,22 +94,26 @@ const fetchProducts = async () => {
   }
 };
 
+// =====================================================
+// คำสั่งที่ 1 & 2: ProductCard Component
+// =====================================================
 // ProductCard component รับ props ตามที่โจทย์กำหนด
 const ProductCard = ({ id, name, price, stock, cate, pic, onProductSelect }) => {
   const handlePress = async () => {
-    // แสดง Alert ชื่อสินค้า
+    // คำสั่งที่ 1: แสดง Alert ชื่อสินค้าเมื่อผู้ใช้เลือกสินค้า
     window.alert(`คุณเลือกสินค้า: ${name}`);
     
-    // บันทึกชื่อสินค้าลง AsyncStorage
+    // คำสั่งที่ 2: บันทึกชื่อสินค้าลง AsyncStorage
     if (onProductSelect) {
       await onProductSelect(id, name);
     }
   };
 
   return (
+    // คำสั่งที่ 1: ใช้ TouchableOpacity ครอบ ProductCard เพื่อให้ผู้ใช้สามารถเลือกรายการสินค้าได้
     <TouchableOpacity 
       style={styles.card} 
-      onPress={handlePress}
+      onPress={handlePress}  // คำสั่งที่ 1: เรียกฟังก์ชัน handlePress เมื่อแตะ
       activeOpacity={0.7}
     >
       <Image 
@@ -124,6 +131,9 @@ const ProductCard = ({ id, name, price, stock, cate, pic, onProductSelect }) => 
   );
 };
 
+// =====================================================
+// คำสั่งที่ 2: App Component - Local Storage Management
+// =====================================================
 // App Component หลัก
 const App = () => {
   const [products, setProducts] = useState([]);
@@ -131,30 +141,30 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterMode, setFilterMode] = useState('all'); // 'all' หรือ 'instock'
-  const [selectedProducts, setSelectedProducts] = useState([]); // เก็บรายการสินค้าที่เลือก
+  const [selectedProducts, setSelectedProducts] = useState([]); // คำสั่งที่ 2: เก็บรายการสินค้าที่เลือก
 
   useEffect(() => {
     loadProducts();
-    loadStoredSelectedProducts();
+    loadStoredSelectedProducts(); // คำสั่งที่ 2: โหลดข้อมูลจาก AsyncStorage เมื่อเริ่มแอป
   }, []);
 
   useEffect(() => {
     filterProducts();
   }, [products, filterMode]);
 
-  // ฟังก์ชันสำหรับโหลดรายการสินค้าที่เลือกจาก AsyncStorage เมื่อเริ่มแอป
+  // คำสั่งที่ 2: ฟังก์ชันสำหรับโหลดรายการสินค้าที่เลือกจาก AsyncStorage เมื่อเริ่มแอป
   const loadStoredSelectedProducts = async () => {
     const storedSelectedProducts = await loadSelectedProducts();
     setSelectedProducts(storedSelectedProducts);
   };
 
-  // ฟังก์ชันสำหรับจัดการการเลือกสินค้า
+  // คำสั่งที่ 2: ฟังก์ชันสำหรับจัดการการเลือกสินค้า
   const handleProductSelect = async (productId, productName) => {
     const newProduct = { id: productId, name: productName };
     const updatedSelectedProducts = [...selectedProducts, newProduct];
     
     setSelectedProducts(updatedSelectedProducts);
-    await saveSelectedProducts(updatedSelectedProducts);
+    await saveSelectedProducts(updatedSelectedProducts); // คำสั่งที่ 2: บันทึกลง AsyncStorage ทันที
     
     console.log(`บันทึก "${productName}" ลง Local Storage แล้ว`);
   };
@@ -244,7 +254,7 @@ const App = () => {
         </TouchableOpacity>
       </View>
 
-      {/* แสดงรายการสินค้าที่เลือก */}
+      {/* คำสั่งที่ 2: แสดงรายการสินค้าที่เลือก (Local Storage Display) */}
       {selectedProducts.length > 0 && (
         <View style={styles.selectedContainer}>
           <Text style={styles.selectedCountText}>
@@ -255,7 +265,7 @@ const App = () => {
             onPress={async () => {
               if (window.confirm('คุณต้องการล้างรายการสินค้าที่เลือกทั้งหมดหรือไม่?')) {
                 setSelectedProducts([]);
-                await saveSelectedProducts([]);
+                await saveSelectedProducts([]); // คำสั่งที่ 2: ล้างข้อมูลใน AsyncStorage
                 window.alert('ล้างรายการที่เลือกแล้ว');
               }
             }}
@@ -266,7 +276,7 @@ const App = () => {
       )}
 
       <ScrollView contentContainerStyle={styles.scrollView}>
-        {/* วนลูปแสดงสินค้าที่กรองแล้วโดยใช้ ProductCard */}
+        {/* คำสั่งที่ 1 & 2: วนลูปแสดงสินค้าที่กรองแล้วโดยใช้ ProductCard */}
         {filteredProducts.map((item) => (
           <ProductCard
             key={item.id}
@@ -276,7 +286,7 @@ const App = () => {
             stock={item.stock}
             cate={item.cate}
             pic={item.pic}
-            onProductSelect={handleProductSelect}
+            onProductSelect={handleProductSelect} // คำสั่งที่ 2: ส่งฟังก์ชันบันทึกลง Local Storage
           />
         ))}
       </ScrollView>
