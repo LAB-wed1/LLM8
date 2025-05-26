@@ -336,6 +336,8 @@ const App = () => {
                       const updatedProducts = selectedProducts.filter(p => p.id !== item.id);
                       setSelectedProducts(updatedProducts);
                       await saveSelectedProducts(updatedProducts);
+                      // แสดง Alert เมื่อลบสินค้าจากตะกร้า
+                      window.alert('ตะกร้าสินค้าถูกลบแล้ว');
                     }}
                   >
                     <Text style={styles.removeButtonText}>✕</Text>
