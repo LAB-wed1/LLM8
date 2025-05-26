@@ -9,8 +9,7 @@ import {
   Text, 
   Image, 
   ActivityIndicator,
-  TouchableOpacity,
-  Alert 
+  TouchableOpacity
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -151,11 +150,11 @@ const App = () => {
     if (selectedProducts.some(p => p.id === productId)) {
       // ถ้าสินค้านี้ถูกเลือกแล้ว ให้ยกเลิกการเลือก
       updatedSelectedProducts = selectedProducts.filter(p => p.id !== productId);
-      Alert.alert('ยกเลิกการเลือก', `ยกเลิกการเลือก "${productName}" แล้ว`);
+      window.alert(`ยกเลิกการเลือก "${productName}" แล้ว`);
     } else {
       // ถ้าสินค้านี้ยังไม่ถูกเลือก ให้เพิ่มเข้าไป
       updatedSelectedProducts = [...selectedProducts, { id: productId, name: productName }];
-      Alert.alert('เลือกสินค้า', `เลือก "${productName}" แล้ว`);
+      window.alert(`บันทึกแล้ว ${productName}`);
     }
     
     setSelectedProducts(updatedSelectedProducts);
@@ -256,22 +255,11 @@ const App = () => {
           <TouchableOpacity 
             style={styles.clearButton}
             onPress={async () => {
-              Alert.alert(
-                'ล้างรายการที่เลือก',
-                'คุณต้องการล้างรายการสินค้าที่เลือกทั้งหมดหรือไม่?',
-                [
-                  { text: 'ยกเลิก', style: 'cancel' },
-                  { 
-                    text: 'ล้าง', 
-                    style: 'destructive',
-                    onPress: async () => {
-                      setSelectedProducts([]);
-                      await saveSelectedProducts([]);
-                      Alert.alert('สำเร็จ', 'ล้างรายการที่เลือกแล้ว');
-                    }
-                  }
-                ]
-              );
+              if (window.confirm('คุณต้องการล้างรายการสินค้าที่เลือกทั้งหมดหรือไม่?')) {
+                setSelectedProducts([]);
+                await saveSelectedProducts([]);
+                window.alert('ล้างรายการที่เลือกแล้ว');
+              }
             }}
           >
             <Text style={styles.clearButtonText}>ล้างทั้งหมด</Text>
