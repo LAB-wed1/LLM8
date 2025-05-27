@@ -1,0 +1,86 @@
+[
+  {
+    "name": "iPhone 15 Pro Max",
+    "price": "45900",
+    "stock": 15,
+    "cate": "สมาร์ทโฟน",
+    "pic": "https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png-alpha&.v=1692845702781"
+  },
+  {
+    "name": "Samsung Galaxy S24 Ultra",
+    "price": "42900",
+    "stock": 20,
+    "cate": "สมาร์ทโฟน",
+    "pic": "https://images.samsung.com/is/image/samsung/p6pim/th/2401/gallery/th-galaxy-s24-ultra-s928-sm-s928bztqthl-thumb-539573173"
+  },
+  {
+    "name": "MacBook Air M3",
+    "price": "44900",
+    "stock": 8,
+    "cate": "แล็ปท็อป",
+    "pic": "https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/macbook-air-13-m3-midnight-select-202402?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1708367688034"
+  },
+  {
+    "name": "iPad Pro 12.9-inch",
+    "price": "35900",
+    "stock": 12,
+    "cate": "แท็บเล็ต",
+    "pic": "https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/ipad-pro-13-select-wifi-spacegray-202405?wid=470&hei=556&fmt=png-alpha&.v=1713308272877"
+  },
+  {
+    "name": "Sony WH-1000XM5",
+    "price": "12900",
+    "stock": 25,
+    "cate": "หูฟัง",
+    "pic": "https://www.sony.co.th/image/5d02da5df552836db894ceed6928c917?fmt=pjpeg&wid=660&bgcolor=FFFFFF&bgc=FFFFFF"
+  },
+  {
+    "name": "Apple Watch Series 9",
+    "price": "13900",
+    "stock": 18,
+    "cate": "สมาร์ทวอช",
+    "pic": "https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/watch-s9-45mm-pink-sport-band-pink-pdp-image-position-1__THTH?wid=316&hei=316&fmt=p-jpg&qlt=95&.v=1693515052107"
+  },
+  {
+    "name": "Nintendo Switch OLED",
+    "price": "12500",
+    "stock": 30,
+    "cate": "เกมคอนโซล",
+    "pic": "https://assets.nintendo.com/image/upload/c_fill,w_1200/q_auto:best/f_auto/dpr_2.0/ncom/software/switch/70010000000964/811461286eeb8c8b0c0506f3e53e50994d8b0c36"
+  },
+  {
+    "name": "AirPods Pro (3rd Gen)",
+    "price": "8900",
+    "stock": 40,
+    "cate": "หูฟัง",
+    "pic": "https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/airpods-pro-3rd-gen-202309?wid=470&hei=556&fmt=png-alpha&.v=1693594197324"
+  },
+  {
+    "name": "Tesla Model Y การ์ดแบบจำลอง",
+    "price": "2500",
+    "stock": 0,
+    "cate": "ของเล่น",
+    "pic": "https://digitalassets.tesla.com/tesla-contents/image/upload/f_auto,q_auto/Model-Y-Main-Hero-Desktop-LHD.jpg"
+  },
+  {
+    "name": "Samsung Galaxy Tab S9",
+    "price": "28900",
+    "stock": 10,
+    "cate": "แท็บเล็ต",
+    "pic": "https://images.samsung.com/is/image/samsung/p6pim/th/sm-x710nzeqthl/gallery/th-galaxy-tab-s9-5g-x710-sm-x710nzeqthl-thumb-537542263"
+  },
+  {
+    "name": "Dyson V15 Detect",
+    "price": "25900",
+    "stock": 5,
+    "cate": "เครื่องใช้ไฟฟ้า",
+    "pic": "https://dyson-h.assetsadobe2.com/is/image/content/dam/dyson/products/vacuum-cleaners/stick/v15-detect/v15-detect-yellow/dyson-v15-detect-yellow-nickel-01.jpg"
+  },
+  {
+    "name": "GoPro HERO12 Black",
+    "price": "18900",
+    "stock": 22,
+    "cate": "กล้อง",
+    "pic": "https://gopro.com/content/dam/gopro/hero12-black/hero12-black-front-left-1024.jpg"
+  }
+]
