@@ -11,7 +11,7 @@ import {
   Alert,
   RefreshControl
 } from 'react-native';
-import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, where, doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -89,6 +89,7 @@ const HomeScreen = ({ navigation }) => {
       console.error('Error saving selected products:', error);
     }
   };
+
   const handleProductSelect = async (product) => {
     // ตรวจสอบว่าผู้ใช้ได้เข้าสู่ระบบแล้วหรือไม่
     if (!auth.currentUser) {
@@ -96,36 +97,80 @@ const HomeScreen = ({ navigation }) => {
       return;
     }
     
-    const userId = auth.currentUser.uid;
+    // ใช้ alert ธรรมดาแทน Alert.alert เพื่อให้แน่ใจว่าจะแสดงผล
+    alert(`คุณเลือกสินค้า: ${product.name}`);
     
-    // ตรวจสอบว่าสินค้านี้มีในตะกร้าแล้วหรือไม่
-    const isAlreadySelected = selectedProducts.some(p => p.id === product.id);
-    
-    if (isAlreadySelected) {
-      Alert.alert('แจ้งเตือน', `สินค้า "${product.name}" ถูกเลือกไว้แล้ว`);
-      return;
-    }
-
-    // เพิ่มสินค้าลงใน Firebase cart collection
+    // เพิ่มสินค้าเข้าตะกร้า
     try {
+      const userId = auth.currentUser.uid;
       const cartRef = collection(db, "cart");
       
       // บันทึกข้อมูลลง Firestore
       await addDoc(cartRef, {
         userId: userId,
-        product: product,
+        product: {
+          ...product,
+          quantity: 1
+        },
         addedAt: new Date()
       });
       
       // อัพเดตสถานะและ AsyncStorage
-      const newSelectedProducts = [...selectedProducts, product];
+      const newProduct = { ...product, quantity: 1 };
+      const newSelectedProducts = [...selectedProducts, newProduct];
       setSelectedProducts(newSelectedProducts);
       await saveSelectedProducts(newSelectedProducts);
       
-      Alert.alert('สำเร็จ', `เพิ่ม "${product.name}" ลงในตะกร้าแล้ว`);
+      alert(`เพิ่ม "${product.name}" ลงในตะกร้าแล้ว`);
+      
+      // รีเฟรชหน้า (อาจช่วยให้เห็นการเปลี่ยนแปลงทันที)
+      navigation.navigate('Cart');
     } catch (error) {
       console.error('Error adding product to cart:', error);
-      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถเพิ่มสินค้าลงตะกร้าได้');
+      alert('ข้อผิดพลาด: ไม่สามารถเพิ่มสินค้าลงตะกร้าได้');
+    }
+  };
+  
+  // ฟังก์ชั่นสำหรับเพิ่มจำนวนสินค้าที่มีอยู่แล้ว
+  const increaseProductQuantity = async (product) => {
+    try {
+      const userId = auth.currentUser.uid;
+      const cartQuery = query(
+        collection(db, "cart"), 
+        where("userId", "==", userId),
+        where("product.id", "==", product.id)
+      );
+      
+      const querySnapshot = await getDocs(cartQuery);
+      
+      if (!querySnapshot.empty) {
+        // มีรายการสินค้าอยู่แล้ว ทำการอัพเดตจำนวน
+        const cartItem = querySnapshot.docs[0];
+        const cartData = cartItem.data();
+        const currentQuantity = cartData.product.quantity || 1;
+        
+        // อัพเดตข้อมูลใน Firestore เพิ่มจำนวนขึ้น 1
+        const cartRef = doc(db, "cart", cartItem.id);
+        await updateDoc(cartRef, {
+          "product.quantity": currentQuantity + 1
+        });
+        
+        // อัพเดตสถานะและ AsyncStorage
+        const updatedProducts = selectedProducts.map(p => {
+          if (p.id === product.id) {
+            return { ...p, quantity: (p.quantity || 1) + 1 };
+          }
+          return p;
+        });
+        
+        setSelectedProducts(updatedProducts);
+        await saveSelectedProducts(updatedProducts);
+        
+        Alert.alert('สำเร็จ', `เพิ่มจำนวน "${product.name}" เป็น ${currentQuantity + 1} ชิ้น`);
+      }
+    } catch (error) {
+      console.error('Error increasing product quantity:', error);
+      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถเพิ่มจำนวนสินค้าได้');
     }
   };
 

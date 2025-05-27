@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, where, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, query, where, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 
 const SELECTED_PRODUCTS_KEY = '@selected_products';
@@ -155,8 +155,122 @@ const CartScreen = ({ navigation }) => {
       ]
     );
   };
+  // คำนวณราคารวมทั้งหมด
   const calculateTotal = () => {
-    return selectedProducts.reduce((total, product) => total + parseFloat(product.price || 0), 0);
+    return selectedProducts.reduce((total, product) => {
+      const quantity = product.quantity || 1;
+      return total + (parseFloat(product.price || 0) * quantity);
+    }, 0);
+  };
+
+  // คำนวณจำนวนชิ้นทั้งหมด
+  const calculateTotalItems = () => {
+    return selectedProducts.reduce((total, product) => {
+      return total + (product.quantity || 1);
+    }, 0);
+  };
+
+  // เพิ่มจำนวนสินค้า
+  const increaseQuantity = async (item) => {
+    try {
+      setLoading(true);
+      
+      if (auth.currentUser) {
+        const cartQuery = query(
+          collection(db, "cart"),
+          where("userId", "==", auth.currentUser.uid),
+          where("product.id", "==", item.id)
+        );
+        
+        const querySnapshot = await getDocs(cartQuery);
+        
+        if (!querySnapshot.empty) {
+          const cartItem = querySnapshot.docs[0];
+          const cartData = cartItem.data();
+          const currentQuantity = cartData.product.quantity || 1;
+          
+          // ตรวจสอบว่าสินค้ามีไม่เกินของในสต็อก
+          if (item.stock && currentQuantity >= item.stock) {
+            Alert.alert('แจ้งเตือน', `จำนวนสินค้ามีแค่ ${item.stock} ชิ้น`);
+            setLoading(false);
+            return;
+          }
+          
+          // อัพเดตข้อมูลใน Firestore
+          const cartRef = doc(db, "cart", cartItem.id);
+          await updateDoc(cartRef, {
+            "product.quantity": currentQuantity + 1
+          });
+          
+          // อัพเดตสถานะและ AsyncStorage
+          const updatedProducts = selectedProducts.map(p => {
+            if (p.id === item.id) {
+              return { ...p, quantity: (p.quantity || 1) + 1 };
+            }
+            return p;
+          });
+          
+          setSelectedProducts(updatedProducts);
+          await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, JSON.stringify(updatedProducts));
+        }
+      }
+    } catch (error) {
+      console.error('Error increasing quantity:', error);
+      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถเพิ่มจำนวนสินค้าได้');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // ลดจำนวนสินค้า
+  const decreaseQuantity = async (item) => {
+    try {
+      setLoading(true);
+      
+      if (auth.currentUser) {
+        const cartQuery = query(
+          collection(db, "cart"),
+          where("userId", "==", auth.currentUser.uid),
+          where("product.id", "==", item.id)
+        );
+        
+        const querySnapshot = await getDocs(cartQuery);
+        
+        if (!querySnapshot.empty) {
+          const cartItem = querySnapshot.docs[0];
+          const cartData = cartItem.data();
+          const currentQuantity = cartData.product.quantity || 1;
+          
+          // ถ้าเหลือชิ้นเดียวและกดลด ให้ลบออกเลย
+          if (currentQuantity <= 1) {
+            await removeProduct(item.id);
+            return;
+          }
+          
+          // อัพเดตข้อมูลใน Firestore
+          const cartRef = doc(db, "cart", cartItem.id);
+          await updateDoc(cartRef, {
+            "product.quantity": currentQuantity - 1
+          });
+          
+          // อัพเดตสถานะและ AsyncStorage
+          const updatedProducts = selectedProducts.map(p => {
+            if (p.id === item.id) {
+              return { ...p, quantity: Math.max(1, (p.quantity || 1) - 1) };
+            }
+            return p;
+          });
+          
+          setSelectedProducts(updatedProducts);
+          await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, JSON.stringify(updatedProducts));
+        }
+      }
+    } catch (error) {
+      console.error('Error decreasing quantity:', error);
+      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถลดจำนวนสินค้าได้');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderCartItem = ({ item, index }) => (
@@ -171,8 +285,25 @@ const CartScreen = ({ navigation }) => {
         <View style={styles.productDetails}>
           <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
           <Text style={styles.productCategory}>{item.cate}</Text>
-          <Text style={styles.productPrice}>฿{item.price}</Text>
+          <Text style={styles.productPrice}>฿{item.price} x {item.quantity || 1} = ฿{(parseFloat(item.price) * (item.quantity || 1)).toFixed(2)}</Text>
         </View>
+      </View>
+      <View style={styles.quantityContainer}>
+        <TouchableOpacity 
+          style={styles.quantityButton}
+          onPress={() => decreaseQuantity(item)}
+        >
+          <Ionicons name="remove" size={18} color="#fff" />
+        </TouchableOpacity>
+        
+        <Text style={styles.quantityText}>{item.quantity || 1}</Text>
+        
+        <TouchableOpacity 
+          style={styles.quantityButton}
+          onPress={() => increaseQuantity(item)}
+        >
+          <Ionicons name="add" size={18} color="#fff" />
+        </TouchableOpacity>
       </View>
       <TouchableOpacity
         style={styles.removeButton}
@@ -229,7 +360,7 @@ const CartScreen = ({ navigation }) => {
             </View>
             <View style={styles.summaryContainer}>
               <Text style={styles.summaryText}>
-                {selectedProducts.length} รายการ
+                {calculateTotalItems()} ชิ้น ({selectedProducts.length} รายการ)
               </Text>
             </View>
             <TouchableOpacity style={styles.checkoutButton}>
@@ -459,6 +590,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  quantityButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantityText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginHorizontal: 8,
+    minWidth: 20,
+    textAlign: 'center',
   },
 });
 
