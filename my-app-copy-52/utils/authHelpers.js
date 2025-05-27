@@ -10,23 +10,25 @@ export const performLogout = async () => {
   console.log('Starting logout process...');
   
   try {
-    // Step 1: Clear all AsyncStorage data
-    console.log('Clearing AsyncStorage...');
-    const keys = await AsyncStorage.getAllKeys();
-    console.log('Found AsyncStorage keys:', keys);
-    
-    await AsyncStorage.multiRemove([
-      '@selected_products',
-      '@user_data',
-      '@cart_items',
-      '@user_preferences'
-    ]);
-    console.log('AsyncStorage cleared successfully');
-    
-    // Step 2: Sign out from Firebase
+    // Step 1: Sign out from Firebase first
     console.log('Signing out from Firebase...');
-    await signOut(auth);
-    console.log('Firebase sign out successful');
+    if (auth) {
+      await signOut(auth);
+      console.log('Firebase sign out successful');
+    } else {
+      console.warn('Firebase auth is not available');
+      throw new Error('Firebase auth is not available');
+    }
+
+    // Step 2: Clear all AsyncStorage data after signout
+    console.log('Clearing AsyncStorage...');
+    try {
+      await AsyncStorage.clear();
+      console.log('AsyncStorage cleared successfully');
+    } catch (storageError) {
+      console.warn('AsyncStorage clear warning:', storageError);
+      // Continue despite AsyncStorage errors
+    }
     
     return { success: true };
     

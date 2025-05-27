@@ -15,6 +15,7 @@ import { collection, getDocs, addDoc, query, where, doc, updateDoc } from 'fireb
 import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { performLogout } from '../utils/authHelpers';
 
 const SELECTED_PRODUCTS_KEY = '@selected_products';
 
@@ -25,6 +26,7 @@ const HomeScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [filterMode, setFilterMode] = useState('all');
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -228,6 +230,52 @@ const HomeScreen = ({ navigation }) => {
       Alert.alert('ข้อผิดพลาด', 'ไม่สามารถเพิ่มจำนวนสินค้าได้');
     }
   };
+  const handleLogout = async () => {
+    Alert.alert(
+      'ออกจากระบบ',
+      'คุณต้องการออกจากระบบหรือไม่?',
+      [
+        { text: 'ยกเลิก', style: 'cancel' },
+        { 
+          text: 'ออกจากระบบ', 
+          style: 'destructive',
+          onPress: () => {
+            setLoggingOut(true);
+            // ใช้วิธีง่ายๆ โดยตรงแทนที่จะใช้ performLogout
+            signOut(auth)
+              .then(() => {
+                console.log('Firebase sign out successful');
+                // ล้าง AsyncStorage
+                return AsyncStorage.multiRemove([
+                  '@selected_products',
+                  '@user_data',
+                  '@cart_items',
+                  '@user_preferences'
+                ]);
+              })
+              .then(() => {
+                console.log('AsyncStorage cleared successfully');
+                // นำทางผู้ใช้ไปยังหน้าล็อกอินด้วยตนเอง
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Auth' }]
+                });
+              })
+              .catch(error => {
+                console.error('Logout error:', error);
+                Alert.alert(
+                  'ข้อผิดพลาด', 
+                  'ไม่สามารถออกจากระบบได้: ' + (error.message || 'กรุณาลองใหม่อีกครั้ง')
+                );
+              })
+              .finally(() => {
+                setLoggingOut(false);
+              });
+          }
+        }
+      ]
+    );
+  };
 
   const renderProduct = ({ item }) => (
     <TouchableOpacity 
@@ -267,7 +315,6 @@ const HomeScreen = ({ navigation }) => {
       </SafeAreaView>
     );
   }
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -275,17 +322,30 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.welcomeText}>สวัสดี, {auth.currentUser?.displayName || 'ผู้ใช้'}</Text>
           <Text style={styles.headerSubtitle}>รายการสินค้าจาก Firebase</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.cartButton}
-          onPress={() => navigation.navigate('Cart')}
-        >
-          <Ionicons name="cart-outline" size={24} color="#007AFF" />
-          {selectedProducts.length > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>{selectedProducts.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            disabled={loggingOut}
+          >
+            {loggingOut ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="log-out-outline" size={22} color="#fff" />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.cartButton}
+            onPress={() => navigation.navigate('Cart')}
+          >
+            <Ionicons name="cart-outline" size={24} color="#007AFF" />
+            {selectedProducts.length > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{selectedProducts.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.filterContainer}>
@@ -358,6 +418,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoutButton: {
+    backgroundColor: '#ff6b35',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
   },
   welcomeText: {
     fontSize: 20,

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { Alert } from 'react-native';
 
 // Import screens
 import LoginScreen from '../screens/LoginScreen';
@@ -92,17 +93,20 @@ const AppNavigator = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log("Setting up auth state change listener");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("Auth state changed:", user ? "User logged in" : "No user");
       setUser(user);
       setIsLoading(false);
     });
 
     return unsubscribe;
   }, []);
-
   if (isLoading) {
     return null; // หรือ Loading screen
   }
+
+  console.log("AppNavigator render - User status:", user ? "Logged in" : "Not logged in");
 
   return (
     <NavigationContainer>
