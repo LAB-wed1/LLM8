@@ -39,15 +39,23 @@ const ProfileScreen = ({ navigation }) => {
         { 
           text: 'ออกจากระบบ', 
           style: 'destructive',
-          onPress: async () => {
-            try {
-              const result = await performLogout();
-              if (result.success) {
-                console.log('Logged out successfully');
-                Alert.alert('สำเร็จ', 'ออกจากระบบเรียบร้อยแล้ว');
-              } else {
-                throw new Error(result.error);
-              }
+          onPress: async () => {            try {
+              // แสดง Alert เมื่อกดปุ่มออกจากระบบ
+              Alert.alert('Window alert()', 'กำลังออกจากระบบ', [
+                { 
+                  text: 'ตกลง', 
+                  onPress: async () => {
+                    const result = await performLogout();
+                    if (result.success) {
+                      console.log('Logged out successfully');
+                      Alert.alert('สำเร็จ', 'ออกจากระบบเรียบร้อยแล้ว');
+                    } else {
+                      throw new Error(result.error);
+                    }
+                  }
+                }
+              ]);
+              return; // ป้องกันการทำงานต่อไปหลังแสดง Alert
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('ข้อผิดพลาด', 'ไม่สามารถออกจากระบบได้: ' + error.message);
