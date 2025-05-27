@@ -10,13 +10,15 @@ import {
   TextInput,
   ActivityIndicator
 } from 'react-native';
-import { signOut, updateProfile, updatePassword, deleteUser } from 'firebase/auth';
+import { signOut, updateProfile, updatePassword, deleteUser, getAuth } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { performLogout } from '../utils/authHelpers';
 import LogoutButton from '../components/LogoutButton';
 import DirectLogoutButton from '../components/DirectLogoutButton';
+import EmergencyLogoutButton from '../components/EmergencyLogoutButton';
+import ClearAndRefreshButton from '../components/ClearAndRefreshButton';
 
 const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
@@ -322,9 +324,13 @@ const ProfileScreen = ({ navigation }) => {
           </TouchableOpacity>
           
           {/* เพิ่มปุ่มออกจากระบบสำรอง ในกรณีที่ปุ่มเดิมมีปัญหา */}
-          <LogoutButton />
-            {/* ใช้ปุ่มออกจากระบบโดยตรงที่สร้างใหม่ */}
+          <LogoutButton />          {/* ใช้ปุ่มออกจากระบบโดยตรงที่สร้างใหม่ */}
           <DirectLogoutButton />
+            {/* ปุ่มออกจากระบบฉุกเฉิน ใช้หากปุ่มอื่นไม่ทำงาน */}
+          <EmergencyLogoutButton />
+          
+          {/* ปุ่มล้างข้อมูลทั้งหมดและรีเฟรชแอป */}
+          <ClearAndRefreshButton />
 
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}

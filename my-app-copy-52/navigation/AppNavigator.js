@@ -94,8 +94,21 @@ const AppNavigator = () => {
 
   useEffect(() => {
     console.log("Setting up auth state change listener");
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("Auth state changed:", user ? "User logged in" : "No user");
+    
+    // สร้าง auth instance ใหม่เพื่อให้แน่ใจว่าใช้อันล่าสุด
+    const currentAuth = getAuth();
+    console.log("Initial auth state:", currentAuth.currentUser ? 
+      `User logged in: ${currentAuth.currentUser.email}` : 
+      "No user logged in");
+    
+    const unsubscribe = onAuthStateChanged(currentAuth, (user) => {
+      console.log("Auth state changed:", user ? `User logged in: ${user.email}` : "User logged out");
+      
+      // เมื่อสถานะเปลี่ยนเป็นออกจากระบบ
+      if (!user && !isLoading) {
+        console.log("User logged out - navigating to login screen");
+      }
+      
       setUser(user);
       setIsLoading(false);
     });
