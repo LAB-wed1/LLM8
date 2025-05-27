@@ -14,6 +14,7 @@ import { signOut, updateProfile, updatePassword, deleteUser } from 'firebase/aut
 import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { performLogout } from '../utils/authHelpers';
 
 const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
@@ -29,7 +30,6 @@ const ProfileScreen = ({ navigation }) => {
       setNewDisplayName(auth.currentUser.displayName || '');
     }
   }, []);
-
   const handleSignOut = async () => {
     Alert.alert(
       'ออกจากระบบ',
@@ -41,12 +41,16 @@ const ProfileScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await signOut(auth);
-              // ลบข้อมูลในตะกร้าสินค้าเมื่อออกจากระบบ
-              await AsyncStorage.removeItem('@selected_products');
-              Alert.alert('สำเร็จ', 'ออกจากระบบแล้ว');
+              const result = await performLogout();
+              if (result.success) {
+                console.log('Logged out successfully');
+                Alert.alert('สำเร็จ', 'ออกจากระบบเรียบร้อยแล้ว');
+              } else {
+                throw new Error(result.error);
+              }
             } catch (error) {
-              Alert.alert('ข้อผิดพลาด', 'ไม่สามารถออกจากระบบได้');
+              console.error('Logout error:', error);
+              Alert.alert('ข้อผิดพลาด', 'ไม่สามารถออกจากระบบได้: ' + error.message);
             }
           }
         }
@@ -110,7 +114,6 @@ const ProfileScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
-
   const handleDeleteAccount = async () => {
     Alert.alert(
       'ลบบัญชี',
@@ -123,14 +126,25 @@ const ProfileScreen = ({ navigation }) => {
           onPress: async () => {
             setLoading(true);
             try {
-              await deleteUser(auth.currentUser);
+              // ล้างข้อมูลทั้งหมดใน AsyncStorage
               await AsyncStorage.clear();
-              Alert.alert('สำเร็จ', 'ลบบัญชีแล้ว');
+              // ลบบัญชีผู้ใช้
+              await deleteUser(auth.currentUser);
+              // Firebase authentication จะทำการ trigger onAuthStateChanged ซึ่งจะนำผู้ใช้กลับไปยังหน้า Login โดยอัตโนมัติ
+              console.log('Account deleted successfully');
             } catch (error) {
+              console.error('Delete account error:', error);
               let errorMessage = 'ไม่สามารถลบบัญชีได้';
               
               if (error.code === 'auth/requires-recent-login') {
                 errorMessage = 'กรุณาเข้าสู่ระบบใหม่ก่อนลบบัญชี';
+                
+                // ถ้าต้องการเข้าสู่ระบบใหม่ ให้ออกจากระบบแล้วนำผู้ใช้ไปยังหน้า Login
+                try {
+                  await signOut(auth);
+                } catch (signOutError) {
+                  console.error('Sign out error after delete attempt:', signOutError);
+                }
               }
               
               Alert.alert('ข้อผิดพลาด', errorMessage);
@@ -270,8 +284,8 @@ const ProfileScreen = ({ navigation }) => {
             style={[styles.actionButton, styles.signOutButton]}
             onPress={handleSignOut}
           >
-            <Ionicons name="log-out-outline" size={20} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.actionButtonText}>ออกจากระบบ</Text>
+            <Ionicons name="log-out-outline" size={24} color="#fff" style={styles.buttonIcon} />
+            <Text style={styles.logoutButtonText}>ออกจากระบบ</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -438,6 +452,14 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     backgroundColor: '#ff6b35',
+    marginVertical: 10,
+    paddingVertical: 15,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   deleteButton: {
     backgroundColor: '#dc3545',
@@ -451,6 +473,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

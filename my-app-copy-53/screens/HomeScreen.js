@@ -9,10 +9,9 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  RefreshControl
+  RefreshControl,
+  ScrollView
 } from 'react-native';
-import { collection, getDocs } from 'firebase/firestore';
-import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -34,22 +33,55 @@ const HomeScreen = ({ navigation }) => {
   useEffect(() => {
     filterProducts();
   }, [products, filterMode]);
-
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const productsCollection = collection(db, 'products');
-      const productSnapshot = await getDocs(productsCollection);
-      const productList = productSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      let allProducts = [];
+      let pageno = 1;
+      let hasMoreData = true;
       
-      setProducts(productList);
-      console.log(`Loaded ${productList.length} products from Firebase`);
+      while (hasMoreData) {
+        console.log(`Fetching page ${pageno} from API`);
+        try {
+          const response = await fetch(`https://it2.sut.ac.th/labexample/product.php?pageno=${pageno}`);
+          
+          if (!response.ok) {
+            console.log(`Response not OK for page ${pageno}, status: ${response.status}`);
+            break;
+          }
+          
+          const data = await response.json();
+          
+          if (data && Array.isArray(data) && data.length > 0) {
+            // มีข้อมูลเพิ่มเติม เพิ่มเข้าใน array
+            const formattedData = data.map(item => ({
+              id: item.id?.toString() || Math.random().toString(),
+              name: item.title || "ไม่มีชื่อ",
+              price: item.price || "0",
+              stock: parseInt(item.stock) || 0,
+              cate: item.category || "ไม่มีหมวดหมู่",
+              pic: item.image || "https://via.placeholder.com/150"
+            }));
+            
+            allProducts = [...allProducts, ...formattedData];
+            console.log(`Added ${formattedData.length} products from page ${pageno}`);
+            pageno++;
+          } else {
+            // ไม่มีข้อมูลเพิ่มเติมแล้ว
+            console.log(`No more data from API at page ${pageno}`);
+            hasMoreData = false;
+          }
+        } catch (fetchError) {
+          console.error(`Error fetching page ${pageno}:`, fetchError);
+          break;
+        }
+      }
+      
+      setProducts(allProducts);
+      console.log(`Total loaded: ${allProducts.length} products from API`);
     } catch (error) {
-      console.error('Error fetching products:', error);
-      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลสินค้าได้');
+      console.error('Error fetching products from API:', error);
+      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลสินค้าจาก API ได้');
     } finally {
       setLoading(false);
     }
@@ -132,24 +164,22 @@ const HomeScreen = ({ navigation }) => {
       </View>
     </TouchableOpacity>
   );
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>กำลังโหลดข้อมูลจาก Firebase...</Text>
+          <Text style={styles.loadingText}>กำลังโหลดข้อมูลจาก API...</Text>
         </View>
       </SafeAreaView>
     );
   }
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.welcomeText}>สวัสดี, {auth.currentUser?.displayName || 'ผู้ใช้'}</Text>
-          <Text style={styles.headerSubtitle}>รายการสินค้าจาก Firebase</Text>
+          <Text style={styles.welcomeText}>สวัสดี, {'ผู้ใช้'}</Text>
+          <Text style={styles.headerSubtitle}>รายการสินค้าจาก API</Text>
         </View>
         <TouchableOpacity 
           style={styles.cartButton}
@@ -194,12 +224,7 @@ const HomeScreen = ({ navigation }) => {
             มีสินค้า ({products.filter(p => p.stock > 0).length})
           </Text>
         </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={filteredProducts}
-        renderItem={renderProduct}
-        keyExtractor={(item) => item.id}
+      </View>      <ScrollView
         contentContainerStyle={styles.productsList}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -209,14 +234,44 @@ const HomeScreen = ({ navigation }) => {
             colors={['#007AFF']}
           />
         }
-        ListEmptyComponent={
+      >
+        {filteredProducts.length > 0 ? (
+          filteredProducts.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.productCard}
+              onPress={() => handleProductSelect(item)}
+              activeOpacity={0.7}
+            >
+              <Image 
+                source={{ uri: item.pic || 'https://via.placeholder.com/150' }} 
+                style={styles.productImage}
+                resizeMode="cover"
+              />
+              <View style={styles.productInfo}>
+                <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
+                <Text style={styles.productCategory}>{item.cate}</Text>
+                <Text style={styles.productPrice}>฿{item.price}</Text>
+                <Text style={[
+                  styles.productStock,
+                  item.stock > 0 ? styles.inStock : styles.outOfStock
+                ]}>
+                  {item.stock > 0 ? `คงเหลือ: ${item.stock} ชิ้น` : 'หมด'}
+                </Text>
+              </View>
+              <View style={styles.addButton}>
+                <Ionicons name="add-circle" size={32} color="#007AFF" />
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="cube-outline" size={80} color="#ccc" />
             <Text style={styles.emptyText}>ไม่มีสินค้า</Text>
             <Text style={styles.emptySubtext}>ลากลงเพื่อรีเฟรช</Text>
           </View>
-        }
-      />
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };

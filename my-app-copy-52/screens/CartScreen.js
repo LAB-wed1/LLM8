@@ -192,6 +192,71 @@ const CartScreen = ({ navigation }) => {
     }, 0);
   };
 
+  // ฟังก์ชันสำหรับการชำระเงิน
+  const handleCheckout = async () => {
+    if (selectedProducts.length === 0) {
+      Alert.alert('ไม่สามารถสั่งซื้อได้', 'ตะกร้าสินค้าของคุณว่างเปล่า');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (!auth.currentUser) {
+        Alert.alert('กรุณาเข้าสู่ระบบ', 'คุณต้องเข้าสู่ระบบก่อนทำการสั่งซื้อ');
+        setLoading(false);
+        return;
+      }
+
+      const userId = auth.currentUser.uid;
+      const orderDate = new Date();
+      
+      // สร้างข้อมูลสำหรับการสั่งซื้อ
+      const orderData = {
+        userId: userId,
+        orderDate: orderDate,
+        totalAmount: calculateTotal(),
+        totalItems: calculateTotalItems(),
+        items: selectedProducts.map(product => ({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: product.quantity || 1,
+          cate: product.cate,
+          pic: product.pic
+        })),
+        status: 'pending' // สถานะเริ่มต้นคือ รอดำเนินการ
+      };
+      
+      // เพิ่มข้อมูลการสั่งซื้อลงใน collection orders
+      const orderRef = await addDoc(collection(db, "orders"), orderData);
+      
+      // ลบข้อมูลในตะกร้า (cart collection)
+      const cartQuery = query(
+        collection(db, "cart"),
+        where("userId", "==", userId)
+      );
+      
+      const querySnapshot = await getDocs(cartQuery);
+      const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+      
+      // อัพเดตสถานะและ AsyncStorage
+      setSelectedProducts([]);
+      await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, JSON.stringify([]));
+      
+      // แสดงข้อความยืนยันการสั่งซื้อ
+      window.alert(`การสั่งซื้อเสร็จสมบูรณ์!\nหมายเลขคำสั่งซื้อ: ${orderRef.id}\nจำนวนเงินทั้งหมด: ฿${calculateTotal().toFixed(2)}`);
+      
+      // นำทางไปยังหน้าโปรไฟล์หรือหน้าประวัติคำสั่งซื้อ (ตามที่ต้องการ)
+      navigation.navigate('Profile');
+    } catch (error) {
+      console.error('Error during checkout:', error);
+      Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถดำเนินการสั่งซื้อได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // เพิ่มจำนวนสินค้า
   const increaseQuantity = async (item) => {
     try {
@@ -385,7 +450,7 @@ const CartScreen = ({ navigation }) => {
                 {calculateTotalItems()} ชิ้น ({selectedProducts.length} รายการ)
               </Text>
             </View>
-            <TouchableOpacity style={styles.checkoutButton}>
+            <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
               <Ionicons name="card-outline" size={20} color="#fff" style={styles.checkoutIcon} />
               <Text style={styles.checkoutButtonText}>สั่งซื้อ</Text>
             </TouchableOpacity>
