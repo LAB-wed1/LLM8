@@ -15,7 +15,6 @@ import { collection, getDocs, addDoc, query, where, doc, updateDoc } from 'fireb
 import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DirectLogoutButton from '../components/DirectLogoutButton';
 
 const SELECTED_PRODUCTS_KEY = '@selected_products';
 
@@ -276,17 +275,6 @@ const HomeScreen = ({ navigation }) => {
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            disabled={loggingOut}
-          >
-            {loggingOut ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Ionicons name="log-out-outline" size={22} color="#fff" />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity 
             style={styles.cartButton}
             onPress={() => navigation.navigate('Cart')}
           >
@@ -370,24 +358,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-  },
-  headerButtons: {
+  },  headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  logoutButton: {
-    backgroundColor: '#ff6b35',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    elevation: 2,
   },
   welcomeText: {
     fontSize: 20,
