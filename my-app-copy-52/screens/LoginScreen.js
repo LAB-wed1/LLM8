@@ -15,6 +15,7 @@ import {
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { updateLastLogin, saveUserData } from '../utils/firestoreHelpers';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -26,11 +27,22 @@ const LoginScreen = ({ navigation }) => {
     if (!email || !password) {
       Alert.alert('ข้อผิดพลาด', 'กรุณากรอกอีเมลและรหัสผ่าน');
       return;
-    }
-
-    setLoading(true);
+    }    setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // อัพเดทเวลาเข้าสู่ระบบล่าสุดใน Firestore
+      const user = userCredential.user;
+      try {
+        // อัพเดทข้อมูลผู้ใช้
+        await saveUserData(user.uid, {
+          lastLogin: new Date(),
+          email: user.email, // บันทึกอีเมลอีกครั้งเผื่อมีการเปลี่ยนแปลง
+        });
+      } catch (firestoreError) {
+        console.error("Firestore update error:", firestoreError);
+        // ทำการดำเนินการต่อแม้ว่าการอัพเดท Firestore จะล้มเหลว
+      }
+
       Alert.alert('สำเร็จ', 'เข้าสู่ระบบสำเร็จ', [
         { text: 'ตกลง', onPress: () => navigation.navigate('Main') }
       ]);

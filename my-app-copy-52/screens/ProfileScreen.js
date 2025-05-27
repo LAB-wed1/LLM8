@@ -15,21 +15,48 @@ import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DirectLogoutButton from '../components/DirectLogoutButton';
+import { getUserData, saveUserData, deleteUserData } from '../utils/firestoreHelpers';
 
 const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [editing, setEditing] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    if (auth.currentUser) {
-      setUser(auth.currentUser);
-      setNewDisplayName(auth.currentUser.displayName || '');
-    }
+    useEffect(() => {
+    const loadUserData = async () => {
+      if (auth.currentUser) {
+        setUser(auth.currentUser);
+        setNewDisplayName(auth.currentUser.displayName || '');
+        
+        try {
+          // ดึงข้อมูลผู้ใช้จาก Firestore
+          const result = await getUserData(auth.currentUser.uid);
+          
+          if (result.success) {
+            setUserData(result.data);
+          } else {
+            // ถ้าไม่มีข้อมูลใน Firestore ให้สร้างใหม่จากข้อมูลการยืนยันตัวตน
+            const newUserData = {
+              name: auth.currentUser.displayName || '',
+              email: auth.currentUser.email,
+              createdAt: new Date(),
+              lastLogin: new Date()
+            };
+            
+            await saveUserData(auth.currentUser.uid, newUserData, false);
+            setUserData(newUserData);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      }
+    };
+    
+    loadUserData();
   }, []);
-
   const handleUpdateProfile = async () => {
     if (!newDisplayName.trim()) {
       Alert.alert('ข้อผิดพลาด', 'กรุณากรอกชื่อผู้ใช้');
@@ -37,15 +64,30 @@ const ProfileScreen = ({ navigation }) => {
     }
 
     setLoading(true);
-    try {
+    try {      // อัพเดทชื่อผู้ใช้ใน Firebase Authentication
       await updateProfile(auth.currentUser, {
         displayName: newDisplayName.trim()
       });
       
+      // อัพเดทข้อมูลใน Firestore ด้วย
+      await saveUserData(auth.currentUser.uid, {
+        name: newDisplayName.trim()
+      });
+      
+      // อัพเดทข้อมูลในสถานะ
       setUser(auth.currentUser);
+      if (userData) {
+        setUserData({
+          ...userData,
+          name: newDisplayName.trim(),
+          updatedAt: new Date()
+        });
+      }
+      
       setEditing(false);
       Alert.alert('สำเร็จ', 'อัพเดทข้อมูลโปรไฟล์แล้ว');
     } catch (error) {
+      console.error('Update profile error:', error);
       Alert.alert('ข้อผิดพลาด', 'ไม่สามารถอัพเดทข้อมูลได้');
     } finally {
       setLoading(false);
@@ -97,10 +139,18 @@ const ProfileScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
-            try {
-              // ล้างข้อมูลทั้งหมดใน AsyncStorage
+            try {              // ล้างข้อมูลทั้งหมดใน AsyncStorage
               await AsyncStorage.clear();
-              // ลบบัญชีผู้ใช้
+                // ลบข้อมูลผู้ใช้จาก Firestore ก่อน
+              try {
+                await deleteUserData(auth.currentUser.uid);
+                console.log('User data deleted from Firestore');
+              } catch (firestoreError) {
+                console.error('Failed to delete user data from Firestore:', firestoreError);
+                // ดำเนินการต่อถึงแม้จะไม่สามารถลบข้อมูลจาก Firestore ได้
+              }
+              
+              // ลบบัญชีผู้ใช้จาก Firebase Authentication
               await deleteUser(auth.currentUser);
               // Firebase authentication จะทำการ trigger onAuthStateChanged ซึ่งจะนำผู้ใช้กลับไปยังหน้า Login โดยอัตโนมัติ
               console.log('Account deleted successfully');
@@ -142,14 +192,21 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>        <View style={styles.header}>
           <View style={styles.avatarContainer}>
             <Ionicons name="person-circle" size={100} color="#007AFF" />
           </View>
-          <Text style={styles.userEmail}>{user.email}</Text>
+          <Text style={styles.userEmail}>{userData?.email || user?.email}</Text>
+          <Text style={styles.userName}>{userData?.name || user?.displayName || 'ผู้ใช้งาน'}</Text>
           <Text style={styles.memberSince}>
-            สมาชิกตั้งแต่: {new Date(user.metadata.creationTime).toLocaleDateString('th-TH')}
+            สมาชิกตั้งแต่: {
+              userData?.createdAt ? 
+                (userData.createdAt.toDate ? 
+                  userData.createdAt.toDate().toLocaleDateString('th-TH') : 
+                  new Date(userData.createdAt).toLocaleDateString('th-TH')
+                ) : 
+                new Date(user.metadata.creationTime).toLocaleDateString('th-TH')
+            }
           </Text>
         </View>
 
@@ -200,12 +257,21 @@ const ProfileScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
-
-          <View style={styles.profileItem}>
+          </View>          <View style={styles.profileItem}>
             <Text style={styles.label}>อีเมล:</Text>
-            <Text style={styles.value}>{user.email}</Text>
+            <Text style={styles.value}>{userData?.email || user?.email || 'ไม่มีข้อมูล'}</Text>
           </View>
+          
+          {userData?.lastLogin && (
+            <View style={styles.profileItem}>
+              <Text style={styles.label}>เข้าสู่ระบบล่าสุด:</Text>
+              <Text style={styles.value}>
+                {userData.lastLogin.toDate ? 
+                  userData.lastLogin.toDate().toLocaleString('th-TH') : 
+                  new Date(userData.lastLogin).toLocaleString('th-TH')}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -295,11 +361,15 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     marginBottom: 16,
-  },
-  userEmail: {
+  },  userEmail: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 2,
+  },
+  userName: {
+    fontSize: 16,
+    color: '#007AFF',
     marginBottom: 4,
   },
   memberSince: {

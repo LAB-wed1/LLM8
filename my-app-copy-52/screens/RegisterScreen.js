@@ -15,6 +15,7 @@ import {
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { createUserData } from '../utils/firestoreHelpers';
 
 const RegisterScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -41,13 +42,19 @@ const RegisterScreen = ({ navigation }) => {
       return;
     }
 
-    setLoading(true);
-    try {
+    setLoading(true);    try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
       // อัพเดทชื่อผู้ใช้
       await updateProfile(userCredential.user, {
         displayName: name
+      });
+        // เก็บข้อมูลผู้ใช้ใน Firestore
+      const user = userCredential.user;
+      await createUserData(user.uid, {
+        name: name,
+        email: email,
+        lastLogin: new Date()
       });
 
       Alert.alert('สำเร็จ', 'สมัครสมาชิกสำเร็จ', [
