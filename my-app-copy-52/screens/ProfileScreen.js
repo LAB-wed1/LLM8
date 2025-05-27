@@ -10,15 +10,11 @@ import {
   TextInput,
   ActivityIndicator
 } from 'react-native';
-import { signOut, updateProfile, updatePassword, deleteUser, getAuth } from 'firebase/auth';
+import { updateProfile, updatePassword, deleteUser } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { performLogout } from '../utils/authHelpers';
-import LogoutButton from '../components/LogoutButton';
 import DirectLogoutButton from '../components/DirectLogoutButton';
-import EmergencyLogoutButton from '../components/EmergencyLogoutButton';
-import ClearAndRefreshButton from '../components/ClearAndRefreshButton';
 
 const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
@@ -27,65 +23,12 @@ const ProfileScreen = ({ navigation }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
   useEffect(() => {
     if (auth.currentUser) {
       setUser(auth.currentUser);
       setNewDisplayName(auth.currentUser.displayName || '');
     }
-  }, []);  const handleSignOut = async () => {
-    // ทดสอบการเข้าถึง Firebase auth
-    try {
-      console.log("Current user:", auth?.currentUser?.email);
-    } catch(e) {
-      console.error("Error checking current user:", e);
-    }
-    
-    Alert.alert(
-      'ออกจากระบบ',
-      'คุณต้องการออกจากระบบหรือไม่?',
-      [
-        { text: 'ยกเลิก', style: 'cancel' },
-        { 
-          text: 'ออกจากระบบ', 
-          style: 'destructive',
-          onPress: () => {
-            setLoading(true);
-            // ใช้ทั้ง Firebase auth และ navigation ในการจัดการการออกจากระบบ
-            signOut(auth)
-              .then(() => {
-                console.log('Firebase sign out successful');
-                // ล้าง AsyncStorage
-                return AsyncStorage.multiRemove([
-                  '@selected_products',
-                  '@user_data',
-                  '@cart_items',
-                  '@user_preferences'
-                ]);
-              })
-              .then(() => {
-                console.log('AsyncStorage cleared successfully');
-                // นำทางผู้ใช้ไปยังหน้าล็อกอินด้วยตนเองเพื่อให้แน่ใจว่าการนำทางเกิดขึ้น
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Auth' }]
-                });
-              })
-              .catch(error => {
-                console.error('Logout error:', error);
-                Alert.alert(
-                  'ข้อผิดพลาด', 
-                  'ไม่สามารถออกจากระบบได้: ' + (error.message || 'กรุณาลองใหม่อีกครั้ง')
-                );
-              })
-              .finally(() => {
-                setLoading(false);
-              });
-          }
-        }
-      ]
-    );
-  };
+  }, []);
 
   const handleUpdateProfile = async () => {
     if (!newDisplayName.trim()) {
@@ -307,30 +250,8 @@ const ProfileScreen = ({ navigation }) => {
         </View>        <View style={styles.section}>
           <Text style={styles.sectionTitle}>การกระทำ</Text>
           
-          <TouchableOpacity
-            style={[styles.actionButton, styles.signOutButton]}
-            onPress={handleSignOut}
-            activeOpacity={0.7}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <View style={styles.buttonContent}>
-                <Ionicons name="log-out-outline" size={24} color="#fff" style={styles.buttonIcon} />
-                <Text style={styles.logoutButtonText}>ออกจากระบบ</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          
-          {/* เพิ่มปุ่มออกจากระบบสำรอง ในกรณีที่ปุ่มเดิมมีปัญหา */}
-          <LogoutButton />          {/* ใช้ปุ่มออกจากระบบโดยตรงที่สร้างใหม่ */}
+          {/* เหลือเพียงปุ่มออกจากระบบทันทีอันเดียว */}
           <DirectLogoutButton />
-            {/* ปุ่มออกจากระบบฉุกเฉิน ใช้หากปุ่มอื่นไม่ทำงาน */}
-          <EmergencyLogoutButton />
-          
-          {/* ปุ่มล้างข้อมูลทั้งหมดและรีเฟรชแอป */}
-          <ClearAndRefreshButton />
 
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}

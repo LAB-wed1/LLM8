@@ -58,11 +58,10 @@ const DirectLogoutButton = () => {
       style={styles.button}
       onPress={handlePress}
       disabled={loading}
-    >
-      {loading ? (
+    >      {loading ? (
         <ActivityIndicator size="small" color="#fff" />
       ) : (
-        <Text style={styles.text}>ออกจากระบบโดยตรง</Text>
+        <Text style={styles.text}>ออกจากระบบทันที</Text>
       )}
     </TouchableOpacity>
   );
@@ -70,7 +69,7 @@ const DirectLogoutButton = () => {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#E53935',
+    backgroundColor: '#FF9B45',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
