@@ -28,7 +28,6 @@ const CartScreen = ({ navigation }) => {
 
     return unsubscribe;
   }, [navigation]);
-
   // โหลดสินค้าจาก Firebase Cart collection
   const loadCartFromFirebase = async () => {
     if (!auth.currentUser) {
@@ -50,10 +49,27 @@ const CartScreen = ({ navigation }) => {
         });
       });
       
-      setSelectedProducts(cartItems);
+      // จัดการรวมสินค้าที่ซ้ำกัน (กรณีมีข้อมูลเก่า)
+      const consolidatedItems = [];
+      const itemMap = new Map();
+      
+      cartItems.forEach(item => {
+        if (itemMap.has(item.id)) {
+          // ถ้ามีสินค้านี้แล้ว เพิ่มจำนวน
+          const existingItem = itemMap.get(item.id);
+          existingItem.quantity = (existingItem.quantity || 1) + (item.quantity || 1);
+        } else {
+          // ถ้ายังไม่มีสินค้านี้ เพิ่มใหม่และให้มั่นใจว่ามี quantity
+          item.quantity = item.quantity || 1;
+          itemMap.set(item.id, item);
+          consolidatedItems.push(item);
+        }
+      });
+      
+      setSelectedProducts(consolidatedItems);
       
       // บันทึกลง AsyncStorage เพื่อให้ใช้งานได้แม้ไม่มีอินเทอร์เน็ต
-      await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, JSON.stringify(cartItems));
+      await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, JSON.stringify(consolidatedItems));
     } catch (error) {
       console.error('Error loading cart from Firebase:', error);
       // หากไม่สามารถโหลดจาก Firebase ได้ ให้ใช้ข้อมูลจาก AsyncStorage แทน
@@ -74,7 +90,6 @@ const CartScreen = ({ navigation }) => {
       console.error('Error loading selected products from AsyncStorage:', error);
     }
   };
-
   // ลบสินค้าจากตะกร้า
   const removeProduct = async (productId) => {
     setLoading(true);
@@ -90,9 +105,16 @@ const CartScreen = ({ navigation }) => {
         const querySnapshot = await getDocs(cartQuery);
         
         if (!querySnapshot.empty) {
-          // มีรายการสินค้าที่ต้องลบ
+          // ใช้แค่เอกสารแรกที่พบ (ควรจะมีแค่หนึ่งเอกสารต่อสินค้า)
           const cartItem = querySnapshot.docs[0];
           await deleteDoc(doc(db, "cart", cartItem.id));
+          
+          // ถ้ามีเอกสารอื่นๆ ให้ลบออกทั้งหมด (เผื่อมีข้อมูลซ้ำในกรณีเก่า)
+          if (querySnapshot.docs.length > 1) {
+            for (let i = 1; i < querySnapshot.docs.length; i++) {
+              await deleteDoc(doc(db, "cart", querySnapshot.docs[i].id));
+            }
+          }
         }
       }
       

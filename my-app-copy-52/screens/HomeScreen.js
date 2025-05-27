@@ -88,9 +88,7 @@ const HomeScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Error saving selected products:', error);
     }
-  };
-
-  const handleProductSelect = async (product) => {
+  };  const handleProductSelect = async (product) => {
     // ตรวจสอบว่าผู้ใช้ได้เข้าสู่ระบบแล้วหรือไม่
     if (!auth.currentUser) {
       Alert.alert('ข้อผิดพลาด', 'กรุณาเข้าสู่ระบบก่อนเพิ่มสินค้าลงตะกร้า');
@@ -100,34 +98,91 @@ const HomeScreen = ({ navigation }) => {
     // ใช้ alert ธรรมดาแทน Alert.alert เพื่อให้แน่ใจว่าจะแสดงผล
     alert(`คุณเลือกสินค้า: ${product.name}`);
     
-    // เพิ่มสินค้าเข้าตะกร้า
     try {
       const userId = auth.currentUser.uid;
-      const cartRef = collection(db, "cart");
       
-      // บันทึกข้อมูลลง Firestore
-      await addDoc(cartRef, {
-        userId: userId,
-        product: {
-          ...product,
-          quantity: 1
-        },
-        addedAt: new Date()
-      });
+      // ตรวจสอบว่ามีสินค้านี้ในตะกร้าแล้วหรือไม่
+      const cartQuery = query(
+        collection(db, "cart"),
+        where("userId", "==", userId),
+        where("product.id", "==", product.id)
+      );
       
-      // อัพเดตสถานะและ AsyncStorage
-      const newProduct = { ...product, quantity: 1 };
-      const newSelectedProducts = [...selectedProducts, newProduct];
-      setSelectedProducts(newSelectedProducts);
-      await saveSelectedProducts(newSelectedProducts);
+      const querySnapshot = await getDocs(cartQuery);
       
-      alert(`เพิ่ม "${product.name}" ลงในตะกร้าแล้ว`);
-      
-      // รีเฟรชหน้า (อาจช่วยให้เห็นการเปลี่ยนแปลงทันที)
-      navigation.navigate('Cart');
+      if (!querySnapshot.empty) {
+        // ถ้ามีสินค้านี้อยู่แล้ว เพิ่มจำนวน
+        const cartItem = querySnapshot.docs[0];
+        const cartData = cartItem.data();
+        const currentQuantity = cartData.product.quantity || 1;
+        
+        // อัพเดตจำนวนสินค้า
+        await updateDoc(doc(db, "cart", cartItem.id), {
+          "product.quantity": currentQuantity + 1
+        });
+        
+        // อัพเดต state และ AsyncStorage
+        const updatedProducts = selectedProducts.map(p => {
+          if (p.id === product.id) {
+            return { ...p, quantity: (p.quantity || 1) + 1 };
+          }
+          return p;
+        });
+        
+        setSelectedProducts(updatedProducts);
+        await saveSelectedProducts(updatedProducts);
+        
+        Alert.alert(
+          'เพิ่มจำนวนสินค้าสำเร็จ',
+          `เพิ่มจำนวน "${product.name}" เป็น ${currentQuantity + 1} ชิ้น`,
+          [
+            {
+              text: 'ไปที่ตะกร้า',
+              onPress: () => navigation.navigate('Cart')
+            },
+            {
+              text: 'เลือกซื้อสินค้าต่อ',
+              style: 'cancel'
+            }
+          ]
+        );
+      } else {
+        // ถ้ายังไม่มีสินค้านี้ เพิ่มใหม่
+        const cartRef = collection(db, "cart");
+        
+        await addDoc(cartRef, {
+          userId: userId,
+          product: {
+            ...product,
+            quantity: 1
+          },
+          addedAt: new Date()
+        });
+        
+        // อัพเดต state และ AsyncStorage
+        const newProduct = { ...product, quantity: 1 };
+        const newSelectedProducts = [...selectedProducts, newProduct];
+        setSelectedProducts(newSelectedProducts);
+        await saveSelectedProducts(newSelectedProducts);
+        
+        Alert.alert(
+          'เพิ่มสินค้าสำเร็จ',
+          `เพิ่ม "${product.name}" ลงในตะกร้าแล้ว`,
+          [
+            {
+              text: 'ไปที่ตะกร้า',
+              onPress: () => navigation.navigate('Cart')
+            },
+            {
+              text: 'เลือกซื้อสินค้าต่อ',
+              style: 'cancel'
+            }
+          ]
+        );
+      }
     } catch (error) {
       console.error('Error adding product to cart:', error);
-      alert('ข้อผิดพลาด: ไม่สามารถเพิ่มสินค้าลงตะกร้าได้');
+      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถเพิ่มสินค้าลงตะกร้าได้');
     }
   };
   
