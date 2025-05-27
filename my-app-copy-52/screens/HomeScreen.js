@@ -11,7 +11,7 @@ import {
   Alert,
   RefreshControl
 } from 'react-native';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -89,8 +89,16 @@ const HomeScreen = ({ navigation }) => {
       console.error('Error saving selected products:', error);
     }
   };
-
   const handleProductSelect = async (product) => {
+    // ตรวจสอบว่าผู้ใช้ได้เข้าสู่ระบบแล้วหรือไม่
+    if (!auth.currentUser) {
+      Alert.alert('ข้อผิดพลาด', 'กรุณาเข้าสู่ระบบก่อนเพิ่มสินค้าลงตะกร้า');
+      return;
+    }
+    
+    const userId = auth.currentUser.uid;
+    
+    // ตรวจสอบว่าสินค้านี้มีในตะกร้าแล้วหรือไม่
     const isAlreadySelected = selectedProducts.some(p => p.id === product.id);
     
     if (isAlreadySelected) {
@@ -98,11 +106,27 @@ const HomeScreen = ({ navigation }) => {
       return;
     }
 
-    const newSelectedProducts = [...selectedProducts, product];
-    setSelectedProducts(newSelectedProducts);
-    await saveSelectedProducts(newSelectedProducts);
-    
-    Alert.alert('สำเร็จ', `เพิ่ม "${product.name}" ลงในตะกร้าแล้ว`);
+    // เพิ่มสินค้าลงใน Firebase cart collection
+    try {
+      const cartRef = collection(db, "cart");
+      
+      // บันทึกข้อมูลลง Firestore
+      await addDoc(cartRef, {
+        userId: userId,
+        product: product,
+        addedAt: new Date()
+      });
+      
+      // อัพเดตสถานะและ AsyncStorage
+      const newSelectedProducts = [...selectedProducts, product];
+      setSelectedProducts(newSelectedProducts);
+      await saveSelectedProducts(newSelectedProducts);
+      
+      Alert.alert('สำเร็จ', `เพิ่ม "${product.name}" ลงในตะกร้าแล้ว`);
+    } catch (error) {
+      console.error('Error adding product to cart:', error);
+      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถเพิ่มสินค้าลงตะกร้าได้');
+    }
   };
 
   const renderProduct = ({ item }) => (

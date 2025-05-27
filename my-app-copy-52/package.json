@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "upload-products": "node scripts/upload-products.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",

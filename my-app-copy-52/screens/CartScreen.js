@@ -7,24 +7,63 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-  Image
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { collection, getDocs, addDoc, deleteDoc, doc, query, where, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
 
 const SELECTED_PRODUCTS_KEY = '@selected_products';
 
 const CartScreen = ({ navigation }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      loadSelectedProducts();
+      loadCartFromFirebase();
     });
 
     return unsubscribe;
   }, [navigation]);
 
+  // โหลดสินค้าจาก Firebase Cart collection
+  const loadCartFromFirebase = async () => {
+    if (!auth.currentUser) {
+      console.log("User not authenticated");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const userId = auth.currentUser.uid;
+      const cartQuery = query(collection(db, "cart"), where("userId", "==", userId));
+      const querySnapshot = await getDocs(cartQuery);
+      
+      const cartItems = [];
+      querySnapshot.forEach((doc) => {
+        cartItems.push({
+          cartId: doc.id,
+          ...doc.data().product
+        });
+      });
+      
+      setSelectedProducts(cartItems);
+      
+      // บันทึกลง AsyncStorage เพื่อให้ใช้งานได้แม้ไม่มีอินเทอร์เน็ต
+      await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, JSON.stringify(cartItems));
+    } catch (error) {
+      console.error('Error loading cart from Firebase:', error);
+      // หากไม่สามารถโหลดจาก Firebase ได้ ให้ใช้ข้อมูลจาก AsyncStorage แทน
+      loadSelectedProducts();
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // โหลดข้อมูลจาก AsyncStorage (สำรอง)
   const loadSelectedProducts = async () => {
     try {
       const jsonValue = await AsyncStorage.getItem(SELECTED_PRODUCTS_KEY);
@@ -32,26 +71,45 @@ const CartScreen = ({ navigation }) => {
         setSelectedProducts(JSON.parse(jsonValue));
       }
     } catch (error) {
-      console.error('Error loading selected products:', error);
+      console.error('Error loading selected products from AsyncStorage:', error);
     }
   };
 
-  const saveSelectedProducts = async (products) => {
-    try {
-      const jsonValue = JSON.stringify(products);
-      await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, jsonValue);
-    } catch (error) {
-      console.error('Error saving selected products:', error);
-    }
-  };
-
+  // ลบสินค้าจากตะกร้า
   const removeProduct = async (productId) => {
-    const updatedProducts = selectedProducts.filter(p => p.id !== productId);
-    setSelectedProducts(updatedProducts);
-    await saveSelectedProducts(updatedProducts);
-    Alert.alert('สำเร็จ', 'ลบสินค้าออกจากตะกร้าแล้ว');
+    setLoading(true);
+    try {
+      if (auth.currentUser) {
+        const userId = auth.currentUser.uid;
+        const cartQuery = query(
+          collection(db, "cart"), 
+          where("userId", "==", userId),
+          where("product.id", "==", productId)
+        );
+        
+        const querySnapshot = await getDocs(cartQuery);
+        
+        if (!querySnapshot.empty) {
+          // มีรายการสินค้าที่ต้องลบ
+          const cartItem = querySnapshot.docs[0];
+          await deleteDoc(doc(db, "cart", cartItem.id));
+        }
+      }
+      
+      // อัพเดตสถานะและ AsyncStorage
+      const updatedProducts = selectedProducts.filter(p => p.id !== productId);
+      setSelectedProducts(updatedProducts);
+      await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, JSON.stringify(updatedProducts));
+      Alert.alert('สำเร็จ', 'ลบสินค้าออกจากตะกร้าแล้ว');
+    } catch (error) {
+      console.error('Error removing product:', error);
+      Alert.alert('ข้อผิดพลาด', 'ไม่สามารถลบสินค้าได้');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // ล้างตะกร้าทั้งหมด
   const clearCart = async () => {
     Alert.alert(
       'ยืนยันการลบ',
@@ -62,15 +120,41 @@ const CartScreen = ({ navigation }) => {
           text: 'ลบทั้งหมด', 
           style: 'destructive',
           onPress: async () => {
-            setSelectedProducts([]);
-            await saveSelectedProducts([]);
-            Alert.alert('สำเร็จ', 'ล้างตะกร้าสินค้าแล้ว');
+            setLoading(true);
+            
+            try {
+              if (auth.currentUser) {
+                const userId = auth.currentUser.uid;
+                const cartQuery = query(
+                  collection(db, "cart"), 
+                  where("userId", "==", userId)
+                );
+                
+                const querySnapshot = await getDocs(cartQuery);
+                
+                // ลบทีละรายการ
+                const deletePromises = querySnapshot.docs.map(doc => 
+                  deleteDoc(doc.ref)
+                );
+                
+                await Promise.all(deletePromises);
+              }
+              
+              // อัพเดตสถานะและ AsyncStorage
+              setSelectedProducts([]);
+              await AsyncStorage.setItem(SELECTED_PRODUCTS_KEY, JSON.stringify([]));
+              Alert.alert('สำเร็จ', 'ล้างตะกร้าสินค้าแล้ว');
+            } catch (error) {
+              console.error('Error clearing cart:', error);
+              Alert.alert('ข้อผิดพลาด', 'ไม่สามารถล้างตะกร้าได้');
+            } finally {
+              setLoading(false);
+            }
           }
         }
       ]
     );
   };
-
   const calculateTotal = () => {
     return selectedProducts.reduce((total, product) => total + parseFloat(product.price || 0), 0);
   };
@@ -98,6 +182,18 @@ const CartScreen = ({ navigation }) => {
       </TouchableOpacity>
     </View>
   );
+
+  // Show loading indicator when loading data
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>กำลังโหลดข้อมูลตะกร้า...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -154,6 +250,12 @@ const CartScreen = ({ navigation }) => {
             <Ionicons name="storefront-outline" size={20} color="#fff" style={styles.shopIcon} />
             <Text style={styles.shopButtonText}>เลือกซื้อสินค้า</Text>
           </TouchableOpacity>
+        </View>
+      )}
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>กำลังโหลด...</Text>
         </View>
       )}
     </SafeAreaView>
@@ -247,6 +349,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#007AFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
   },
   removeButton: {
     backgroundColor: '#ff3b30',
